@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<breakfastMenu>
+	<food key="bw">
+		<name>Belgian Waffles</name>
+		<price>$5.95</price>
+		<description>Two of our famous Belgian Waffles with plenty of real maple syrup</description>
+		<calories>650</calories>
+	</food>
+	<food key="sbw">
+		<name>Strawberry Belgian Waffles</name>
+		<price>$7.95</price>
+		<description>Light Belgian waffles covered with strawberries and whipped cream</description>
+	</food>
+	<food key="rus">
+		<name>Русский текст</name>
+		<price>$8.95</price>
+		<description>Light Belgian waffles covered with an assortment of fresh berries and whipped cream</description>
+	</food>
+	<food key="ft">
+		<name>French Toast</name>
+		<price>$4.50</price>
+		<description>Thick slices made from our homemade sourdough bread</description>
+	</food>
+	<food key="hb">
+		<name>Homestyle Breakfast</name>
+		<price>$6.95</price>
+		<description>Two eggs, bacon or sausage, toast, and our ever-popular hash browns</description>
+	</food>
+    <calories>
+        <item key="ft">600</item>
+        <item key="bw">650</item>
+        <item key="sbw">900</item>
+        <item key="rus">900</item>
+        <item key="hb">600</item>
+    </calories>
+</breakfastMenu>
