@@ -10,12 +10,32 @@
     <xsl:key name="calories" match="/breakfastMenu/calories/item" use="@key"/>
 
     <xsl:template match="/breakfastMenu">
+        <xsl:message>
+            <xsl:apply-templates mode="path" select="."/>
+        </xsl:message>
         <html>
             <body>
                 <h1>Breakfast</h1>
                 <xsl:apply-templates select="food" mode="food_menu"/>
             </body>
         </html>
+    </xsl:template>
+
+    <xsl:template match="*" mode="path">
+        <xsl:value-of select="concat('/',name())"/>
+        <xsl:variable name="vnumPrecSiblings" select=
+        "count(preceding-sibling::*[name()=name(current())])"/>
+        <xsl:variable name="vnumFollSiblings" select=
+        "count(following-sibling::*[name()=name(current())])"/>
+        <xsl:if test="$vnumPrecSiblings or $vnumFollSiblings">
+            <xsl:value-of select=
+            "concat('[', $vnumPrecSiblings +1, ']')"/>
+        </xsl:if>
+    </xsl:template>
+
+    <xsl:template match="@*" mode="path">
+     <xsl:apply-templates select="ancestor::*" mode="path"/>
+     <xsl:value-of select="concat('/@', name())"/>
     </xsl:template>
 
     <xsl:output omit-xml-declaration="yes"
