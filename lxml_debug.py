@@ -20,12 +20,7 @@ __version__ = '0.0-proof-of-concept'
 #  * opt parse
 #  * output dumping ("-o")
 #  * параметр "--base-path" для resolver, запрещающий выход за её пределы
-#  * параметр "--dump-results" для сохранения в output обработанных xsl
-#  * пофиксить и дополнить panforte-path шаблон
-#    * добавлять и строить динамечески (до xsl:output если есть, либо в конец)
-#    * добавлять случайный префикс к названию
-#    * в debug-path выводить полный путь (сейчас только на 1 уровень выше)
-#    * можно ли получить полный путь до контекста в именных шаблонах?
+#  * параметр "--dump-results" для сохранения в output обработанных xsl (только с base-path)
 #  * logging
 #  * api: возврат всех результатов в виде объектов (list'ы из namedtuple)
 #    * xml вывод из результатов
@@ -37,7 +32,7 @@ __version__ = '0.0-proof-of-concept'
 #  * lxml 2.x & 3.x support
 #  * оптимизация процессинга по времени и расходу памяти
 
-dump_output = False
+dump_output = False  # XXX: не включать! не безопасно для примеров не из /samples
 
 
 def main(argv):
@@ -58,9 +53,18 @@ def _title(text):
 def _log(text):
     print('> ' + text)
 
+
+def _strip_long_string(s, max_width=300):
+    return s[:max_width-3] + '...' if len(s) > max_width else s
+
 XSL_NS = 'http://www.w3.org/1999/XSL/Transform'
 NSMAP = {'xsl': XSL_NS}
 XSL_TAG = '{' + XSL_NS + '}'
+
+PANFORTE_NS = 'https://github.com/maizy/panforte'
+PANFORTE_TAG = '{' + PANFORTE_NS + '}'
+PANFORTE_ALIAS = 'pn'
+PANFORTE_NSMAP = {PANFORTE_ALIAS: PANFORTE_NS}
 
 # FIXME: tmp
 output_strip = os.path.abspath(os.path.dirname(__file__))
@@ -86,7 +90,8 @@ def add_xsl_debug_info(tree, file_name, prefix):
             b'mt': t_xml.get('match'),
         }
         dbg_xml.text = '{0}|{1}|'.format(prefix, encode(debug_data))
-        etree.SubElement(dbg_xml, '{0}apply-templates'.format(XSL_TAG), select='.', mode='panforte-path')
+        etree.SubElement(dbg_xml, '{0}value-of'.format(XSL_TAG), select='pn:path(current())')
+
         after = None
         for ch in t_xml.iterchildren():  # TODO: optimize
             if ch.tag in ('{0}param'.format(XSL_TAG), '{0}variable'.format(XSL_TAG), etree.Comment):
@@ -104,6 +109,7 @@ def dump_xsl(url, content):
         os.makedirs(os.path.dirname(res_path))
     except OSError:
         pass
+    _log('write xsl dump to {0}'.format(res_path))
     with open(res_path, 'w') as f:
         f.write(content)
 
@@ -125,6 +131,7 @@ class PanforteResolver(etree.Resolver):
                 tree = etree.parse(f)
             add_xsl_debug_info(tree, url, self._prefix)
             res = etree.tostring(tree, encoding=unicode).encode('utf-8')
+            res = add_panforte_xmlns(res)  # FIXME: hack inside
 
             # FIXME: tmp
             if dump_output:
@@ -136,6 +143,21 @@ class PanforteResolver(etree.Resolver):
         return self.resolve_string(string=self._processed[url], context=context)
 
 
+def add_panforte_xmlns(result_string):
+    #FIXME hack
+    return result_string.replace(b'<xsl:stylesheet',
+                                 b'<xsl:stylesheet xmlns:{0}="{1}" '.format(PANFORTE_ALIAS, PANFORTE_NS))
+
+
+def print_path(context, element, **kwargs):
+    el = element[0] # FIXME: why??
+    if isinstance(el, basestring):  # text nodes
+        parent = el.getparent()
+        return 'TEXT OF: ' + el.getparent().getroottree().getpath(parent)
+    else:
+        return el.getroottree().getpath(el)
+
+
 def debug(xsl_file, data_file):
 
     _title('XSL FILE')
@@ -144,25 +166,31 @@ def debug(xsl_file, data_file):
     _title('DATA FILE')
     print(data_file)
 
-    prefix = 'panforte{0}'.format(random.randint(10000, 99999))
-    xsl_preprocessed = etree.parse(open(xsl_file, 'r'))
-    add_xsl_debug_info(xsl_preprocessed, xsl_file, prefix)
-    xsl_preprocessed = etree.tostring(xsl_preprocessed, encoding=unicode).encode('utf-8')
+    prefix = b'panforte{0}'.format(random.randint(10000, 99999))
+    xsl = etree.parse(open(xsl_file, 'r'))
 
-    # TODO: вставлять и собирать динамически
-    path_debug = open('path.xsl', 'r').read()
-    xsl_preprocessed = xsl_preprocessed.replace('<xsl:output', path_debug + '<xsl:output')
+    add_xsl_debug_info(xsl, xsl_file, prefix)
+    xsl_str = etree.tostring(xsl, encoding=unicode).encode('utf-8')
+    xsl_str = add_panforte_xmlns(xsl_str)  # FIXME: hack inside
 
     _title('preprocessed root xsl')
     if dump_output:
-        dump_xsl(os.path.abspath(xsl_file), xsl_preprocessed)
+        dump_xsl(os.path.abspath(xsl_file), xsl_str)
 
     parser = etree.XMLParser()
     parser.resolvers.add(PanforteResolver(prefix))
-    xsl = etree.fromstring(xsl_preprocessed, parser=parser, base_url=os.path.abspath(xsl_file))
+    # TODO: don't do tostring/fromstring mangling
+    xsl_tree = etree.fromstring(xsl_str, parser=parser, base_url=os.path.abspath(xsl_file))
 
     data = etree.parse(open(data_file, 'r'))
-    transform = etree.XSLT(xsl)
+
+    ns = etree.FunctionNamespace(PANFORTE_NS)
+    ns.prefix = PANFORTE_ALIAS
+    ns['path'] = print_path
+
+    etree.XPathEvaluator(data, namespaces=PANFORTE_NSMAP)
+
+    transform = etree.XSLT(xsl_tree)
     try:
         result = transform(data, profile_run=True)
     except etree.XSLTApplyError as e:
@@ -186,7 +214,8 @@ def debug(xsl_file, data_file):
                 tpl = 'NAMED TPL: context="{c}", name="{n}", file="{f}:{l}"'
             else:
                 tpl = 'TPL: context="{c}", mode="{m}", match="{mt}", file="{f}:{l}"'
-            print(tpl.format(c=parts[2], **debug_info))
+            print(tpl.format(c=parts[2], **dict((k, _strip_long_string(v) if isinstance(v, basestring) else None)
+                                                for k, v in debug_info.iteritems())))
         else:
             print('MSG: mes="{en.message}", column="{en.column}", file="{en.filename}:{en.line}"'
                   .format(en=entry))
