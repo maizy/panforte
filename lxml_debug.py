@@ -214,7 +214,7 @@ def debug(xsl_file, data_file):
                 tpl = 'NAMED TPL: context="{c}", name="{n}", file="{f}:{l}"'
             else:
                 tpl = 'TPL: context="{c}", mode="{m}", match="{mt}", file="{f}:{l}"'
-            print(tpl.format(c=parts[2], **dict((k, _strip_long_string(v) if isinstance(v, basestring) else None)
+            print(tpl.format(c=parts[2], **dict((k, _strip_long_string(v) if isinstance(v, basestring) else v)
                                                 for k, v in debug_info.iteritems())))
         else:
             print('MSG: mes="{en.message}", column="{en.column}", file="{en.filename}:{en.line}"'
