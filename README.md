@@ -11,6 +11,10 @@
 
 `python lxml_debug.py XSL XML`
 
+Или с exslt расширениями, аналогичным используемыми в HeadHunter:
+
+`python lxml_debug.py XSL XML --hh-exslt`
+
 Проверено на:
 * python=2.6 + lxml=2.2.8
 * python=2.7 + lxml=3.2.4
@@ -32,6 +36,7 @@ git clone https://github.com/maizy/panforte.git
 cd panforte/
 python lxml_debug.py samples/simple-xsl-xslt1/pages/breakfast.xsl samples/data/food-menu.xml
 ```
+
 
 Выдаёт такой отчёт:
 ```

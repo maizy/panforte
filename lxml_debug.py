@@ -10,6 +10,7 @@ import os
 import random
 import cPickle as pickle
 import base64
+import pprint
 
 from lxml import etree
 
@@ -37,13 +38,17 @@ dump_output = False  # XXX: не включать! не безопасно дл�
 
 def main(argv):
     if len(argv) < 3:  # TODO: opt parse
-        sys.stderr.write('Usage {0}: xsl_file data_file\n'.format(argv[0]))
+        sys.stderr.write('Usage {0}: xsl_file data_file\n [--hh-exslt]'.format(argv[0]))
         return 2
     xsl_file = argv[1]
     data_file = argv[2]
+    if len(argv) > 3 and argv[3] == '--hh-exslt':
+        hh_exslt = True
+    else:
+        hh_exslt = False
     assert os.path.isfile(xsl_file)
     assert os.path.isfile(data_file)
-    return debug(xsl_file, data_file)
+    return debug(xsl_file, data_file, hh_exslt)
 
 
 def _title(text):
@@ -150,7 +155,7 @@ def add_panforte_xmlns(result_string):
 
 
 def print_path(context, element, **kwargs):
-    el = element[0] # FIXME: why??
+    el = element[0]  # FIXME: why??
     if isinstance(el, basestring):  # text nodes
         parent = el.getparent()
         return 'TEXT OF: ' + el.getparent().getroottree().getpath(parent)
@@ -158,7 +163,7 @@ def print_path(context, element, **kwargs):
         return el.getroottree().getpath(el)
 
 
-def debug(xsl_file, data_file):
+def debug(xsl_file, data_file, hh_exslt=False):
 
     _title('XSL FILE')
     print(xsl_file)
@@ -188,6 +193,10 @@ def debug(xsl_file, data_file):
     ns.prefix = PANFORTE_ALIAS
     ns['path'] = print_path
 
+    if hh_exslt:
+        import hh_json
+        hh_json.etree_enrich_hh_namespace()
+
     etree.XPathEvaluator(data, namespaces=PANFORTE_NSMAP)
 
     transform = etree.XSLT(xsl_tree)
@@ -196,6 +205,7 @@ def debug(xsl_file, data_file):
     except etree.XSLTApplyError as e:
         _title('XSLT Error')
         print(e)
+        print(e.__dict__)
         return 1
 
     _title('RESULTS')
